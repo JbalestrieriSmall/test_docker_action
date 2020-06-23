@@ -1,8 +1,14 @@
-# Container image that runs your code
-FROM alpine:3.10
+# Perform the build in an Unreal Engine container image that includes the Engine Tools
+FROM adamrehn/ue4-full:4.21.2 AS builder
 
-# Copies your code file from your action repository to the filesystem path `/` of the container
-COPY entrypoint.sh /entrypoint.sh
+# Clone the source code for our Unreal project
+RUN git clone --progress --depth 1 https://github.com/adamrehn/ue4-sample-project.git /tmp/project
 
-# Code file to execute when the docker container starts up (`entrypoint.sh`)
-ENTRYPOINT ["/entrypoint.sh"]
+# Build and package our Unreal project
+# (We're using ue4cli for brevity here, but we could just as easily be calling RunUAT directly)
+WORKDIR /tmp/project
+RUN ue4 package
+
+# Copy the packaged files into a container image that doesn't include any Unreal Engine components
+FROM adamrehn/ue4-runtime:latest
+COPY --from=builder --chown=ue4:ue4 /tmp/project/dist/LinuxNoEditor /home/ue4/project
